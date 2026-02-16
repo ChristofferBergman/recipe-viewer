@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Neo4j Recipe Viewer</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --accent: #1e3a8a;   /* Dark blue */
+      --accent-soft: #e0e7ff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --shadow: 0 10px 30px rgba(0,0,0,.06);
+    }
+
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      padding: 30px 20px 10px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 30px;
+      color: var(--accent);
+    }
+
+    .sub {
+      margin-top: 6px;
+      font-family: system-ui, sans-serif;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .grid {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 1000px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .card .hd {
+      padding: 16px;
+      background: var(--accent);
+      color: white;
+      font-family: system-ui, sans-serif;
+      font-weight: 600;
+      font-size: 14px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .card .bd { padding: 18px; }
+
+    label {
+      display: block;
+      font-family: system-ui, sans-serif;
+      font-size: 12px;
+      color: var(--muted);
+      margin: 14px 0 6px;
+    }
+
+    input, select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      font-family: system-ui, sans-serif;
+      font-size: 14px;
+      background: white;
+      color: var(--text);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .btn {
+      margin-top: 16px;
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-family: system-ui, sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn.secondary {
+      margin-top: 10px;
+      background: white;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+
+    /* Cookbook Layout */
+
+    .page {
+      padding: 30px 36px 40px;
+    }
+
+    .recipe-title {
+      font-size: 44px;
+      margin: 0 0 12px;
+      color: var(--accent);
+    }
+
+    .recipe-desc {
+      font-family: system-ui, sans-serif;
+      font-size: 16px;
+      color: var(--muted);
+      max-width: 80ch;
+      margin-bottom: 20px;
+      line-height: 1.6;
+    }
+
+    .meta {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 30px;
+      font-family: system-ui, sans-serif;
+      font-size: 13px;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 500;
+    }
+
+    /* Wider instructions */
+    .cols {
+      display: grid;
+      grid-template-columns: 260px 1fr; /* Ingredients smaller, instructions larger */
+      gap: 40px;
+    }
+
+    @media (max-width: 900px) {
+      .cols { grid-template-columns: 1fr; }
+    }
+
+    h2 {
+      font-family: system-ui, sans-serif;
+      font-size: 13px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0 0 12px;
+    }
+
+    ul.ing {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      border-top: 1px solid var(--line);
+    }
+
+    ul.ing li {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--line);
+      font-family: system-ui, sans-serif;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .amt {
+      font-variant-numeric: tabular-nums;
+      color: var(--muted);
+      min-width: 92px;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    ol.steps {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    ol.steps li {
+      margin-bottom: 16px;
+      line-height: 1.7;
+      font-size: 18px;
+    }
+
+    .status {
+      margin-top: 16px;
+      font-family: system-ui, sans-serif;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .status.error { color: #b91c1c; }
+    .mono { font-family: ui-monospace, monospace; }
+
+    .divider {
+      height: 1px;
+      background: var(--line);
+      margin: 14px 0 6px;
+    }
+  </style>
+</head>
+
+<body>
+<header>
+  <h1>Recipe Viewer</h1>
+  <div class="sub">Connect, load recipe names, then render one like a cookbook page.</div>
+</header>
+
+<div class="grid">
+  <section class="card">
+    <div class="hd">Connection</div>
+    <div class="bd">
+      <label for="host">Host</label>
+      <input id="host" placeholder="https://xxxx.databases.neo4j.io" />
+
+      <div class="row">
+        <div>
+          <label for="db">Database</label>
+          <input id="db" value="neo4j" />
+        </div>
+        <div>
+          <label for="authMode">Auth</label>
+          <select id="authMode">
+            <option value="basic" selected>Basic</option>
+            <option value="bearer">Bearer</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="basicFields">
+        <div class="row">
+          <div>
+            <label for="user">Username</label>
+            <input id="user" value="neo4j" />
+          </div>
+          <div>
+            <label for="pass">Password</label>
+            <input id="pass" type="password" />
+          </div>
+        </div>
+      </div>
+
+      <div id="bearerFields" style="display:none;">
+        <label for="token">Bearer Token</label>
+        <input id="token" type="password" />
+      </div>
+
+      <div class="divider"></div>
+
+      <label for="recipeSelect">Recipe</label>
+      <select id="recipeSelect" disabled>
+        <option value="">Load recipes first…</option>
+      </select>
+
+      <button class="btn secondary" id="loadListBtn">Load recipe list</button>
+      <button class="btn" id="loadBtn" disabled>Load selected recipe</button>
+
+      <div class="status" id="status"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="hd">Cookbook Page</div>
+    <div class="page" id="output">
+      <div class="recipe-title" style="opacity:.6;">No recipe loaded</div>
+      <div class="recipe-desc">Use “Load recipe list”, pick a recipe, then click “Load selected recipe”.</div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+
+  const hostEl = $("host");
+  const dbEl = $("db");
+  const authModeEl = $("authMode");
+  const userEl = $("user");
+  const passEl = $("pass");
+  const tokenEl = $("token");
+  const recipeSelectEl = $("recipeSelect");
+  const loadListBtn = $("loadListBtn");
+  const loadBtn = $("loadBtn");
+  const statusEl = $("status");
+  const outputEl = $("output");
+  const basicFields = $("basicFields");
+  const bearerFields = $("bearerFields");
+
+  authModeEl.addEventListener("change", () => {
+    const mode = authModeEl.value;
+    basicFields.style.display = mode === "basic" ? "" : "none";
+    bearerFields.style.display = mode === "bearer" ? "" : "none";
+  });
+
+  function setStatus(text, isError = false) {
+    statusEl.textContent = text || "";
+    statusEl.className = "status" + (isError ? " error" : "");
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  function formatAmount(n) {
+    if (n === null || n === undefined || n === "") return "";
+    const num = Number(n);
+    if (!Number.isFinite(num)) return String(n);
+    return (Math.round(num * 1000) / 1000).toString();
+  }
+
+  function buildAuthHeader() {
+    if (authModeEl.value === "basic") {
+      const raw = `${userEl.value ?? ""}:${passEl.value ?? ""}`;
+      return "Basic " + btoa(unescape(encodeURIComponent(raw)));
+    }
+    const t = tokenEl.value ?? "";
+    return "Bearer " + btoa(unescape(encodeURIComponent(t)));
+  }
+
+  function getBase() {
+    const host = (hostEl.value || "").trim().replace(/\/+$/g, "");
+    const db = (dbEl.value || "neo4j").trim();
+    if (!host) throw new Error("Please enter Host (e.g. https://xxxx.databases.neo4j.io).");
+    if (!db) throw new Error("Please enter Database (e.g. neo4j).");
+    return { host, db };
+  }
+
+  async function runQuery({ statement, parameters }) {
+    const { host, db } = getBase();
+    const url = `${host}/db/${encodeURIComponent(db)}/query/v2`;
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": buildAuthHeader()
+      },
+      body: JSON.stringify({ statement, parameters: parameters || {} })
+    });
+
+    const json = await res.json().catch(() => ({}));
+
+    if (res.status === 401) throw new Error("401 Unauthorized (check credentials/token).");
+    if (Array.isArray(json?.errors) && json.errors.length) {
+      const msg = json.errors.map(e => `${e.code}: ${e.message}`).join("\n");
+      throw new Error(msg);
+    }
+    return json;
+  }
+
+  function getFirstRow(json) {
+    const fields = json?.data?.fields || [];
+    const values = json?.data?.values || [];
+    if (!fields.length || !values.length) return null;
+    const row = values[0] || [];
+    return { fields, row };
+  }
+
+  function setSelectLoading() {
+    recipeSelectEl.disabled = true;
+    loadBtn.disabled = true;
+    recipeSelectEl.innerHTML = `<option value="">Loading…</option>`;
+  }
+
+  function setSelectOptions(names) {
+    const opts = names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
+    recipeSelectEl.innerHTML = `<option value="">Select a recipe…</option>` + opts;
+    recipeSelectEl.disabled = false;
+    loadBtn.disabled = false;
+  }
+
+  async function loadRecipeList() {
+    setStatus("");
+    setSelectLoading();
+    loadListBtn.disabled = true;
+
+    try {
+      // Collect recipe names. DISTINCT + ORDER BY for a clean dropdown.
+      const statement =
+        `MATCH (r:Recipe) ` +
+        `WHERE r.name IS NOT NULL ` +
+        `RETURN DISTINCT r.name AS name ` +
+        `ORDER BY name ASC`;
+
+      const json = await runQuery({ statement, parameters: {} });
+
+      const fields = json?.data?.fields || [];
+      const values = json?.data?.values || [];
+
+      const idx = fields.indexOf("name");
+      if (idx < 0 || !values.length) {
+        recipeSelectEl.innerHTML = `<option value="">No recipes found</option>`;
+        recipeSelectEl.disabled = true;
+        loadBtn.disabled = true;
+        setStatus("No recipes found.");
+        return;
+      }
+
+      const names = values
+        .map(row => row[idx])
+        .filter(v => typeof v === "string" && v.trim().length > 0);
+
+      if (!names.length) {
+        recipeSelectEl.innerHTML = `<option value="">No recipes found</option>`;
+        recipeSelectEl.disabled = true;
+        loadBtn.disabled = true;
+        setStatus("No recipes found.");
+        return;
+      }
+
+      setSelectOptions(names);
+      setStatus(`Loaded ${names.length} recipe(s). Select one and click “Load selected recipe”.`);
+    } catch (e) {
+      recipeSelectEl.innerHTML = `<option value="">Load recipes first…</option>`;
+      recipeSelectEl.disabled = true;
+      loadBtn.disabled = true;
+      setStatus(e?.message || String(e), true);
+    } finally {
+      loadListBtn.disabled = false;
+    }
+  }
+
+  async function loadSelectedRecipe() {
+    setStatus("");
+    loadBtn.disabled = true;
+
+    try {
+      const selectedName = recipeSelectEl.value;
+      if (!selectedName) throw new Error("Select a recipe first.");
+
+      // NOTE: number is now hard-coded in the Cypher (no JS parameter/constant)
+      const statement =
+        `MATCH (r:Recipe) WHERE r.name = $name ` +
+        `WITH r LIMIT 1 ` +
+        `OPTIONAL MATCH (r)-[ir:INGREDIENT]->(i:Ingredient) ` +
+        `OPTIONAL MATCH (i)-[a:AMOUNT]->(u:Unit) ` +
+        `WITH r, ir, i, a, u ORDER BY ir.number ASC ` +
+        `RETURN ` +
+        `r{.name,.description,.servings,.cookingTime,.instructions, elementId: elementId(r)} AS recipe, ` +
+        `collect(CASE WHEN i IS NULL THEN null ELSE {` +
+          `name: i.name, ` +
+          `amount: a.amount, ` +
+          `unit: u.name` +
+        `} END) AS ingredients`;
+
+      const json = await runQuery({ statement, parameters: { name: selectedName } });
+
+      const first = getFirstRow(json);
+      if (!first) throw new Error("No recipe data returned (unexpected).");
+
+      const { fields, row } = first;
+      const recipe = row[fields.indexOf("recipe")];
+      const ingredients = (row[fields.indexOf("ingredients")] || []).filter(x => x);
+
+      if (!recipe) throw new Error("Recipe not found for that name.");
+
+      renderCookbook(recipe, ingredients);
+      setStatus("Loaded successfully.");
+    } catch (e) {
+      setStatus(e?.message || String(e), true);
+    } finally {
+      loadBtn.disabled = false;
+    }
+  }
+
+  function renderCookbook(recipe, ingredients) {
+    const instr = Array.isArray(recipe.instructions) ? recipe.instructions : [];
+
+    const safeTitle = escapeHtml(recipe.name || "Untitled recipe");
+    const safeDesc = escapeHtml(recipe.description || "");
+
+    outputEl.innerHTML = `
+      <div class="recipe-title">${safeTitle}</div>
+      ${safeDesc ? `<div class="recipe-desc">${safeDesc}</div>` : ``}
+
+      <div class="meta">
+        ${recipe.servings != null ? `<span class="pill">Serves ${escapeHtml(recipe.servings)}</span>` : ``}
+        ${recipe.cookingTime != null ? `<span class="pill">${escapeHtml(recipe.cookingTime)} min</span>` : ``}
+      </div>
+
+      <div class="cols">
+        <div>
+          <h2>Ingredients</h2>
+          ${
+            ingredients.length
+              ? `<ul class="ing">${
+                  ingredients.map(i => {
+                    const amt = formatAmount(i.amount);
+                    const unit = (i.unit ?? "").toString();
+                    const amtText = (amt || unit) ? `${escapeHtml(amt)} ${escapeHtml(unit)}`.trim() : "";
+                    return `
+                      <li>
+                        <span>${escapeHtml(i.name ?? "")}</span>
+                        <span class="amt">${amtText || "&nbsp;"}</span>
+                      </li>`;
+                  }).join("")
+                }</ul>`
+              : `<div class="recipe-desc" style="margin:0;">No ingredients found.</div>`
+          }
+        </div>
+
+        <div>
+          <h2>Method</h2>
+          ${
+            instr.length
+              ? `<ol class="steps">${instr.map(step => `<li>${escapeHtml(step)}</li>`).join("")}</ol>`
+              : `<div class="recipe-desc" style="margin:0;">No instructions found.</div>`
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  loadListBtn.addEventListener("click", loadRecipeList);
+  loadBtn.addEventListener("click", loadSelectedRecipe);
+
+  // Optional: auto-enable “Load selected recipe” when a selection is made
+  recipeSelectEl.addEventListener("change", () => {
+    loadBtn.disabled = recipeSelectEl.disabled || !recipeSelectEl.value;
+  });
+})();
+</script>
+</body>
+</html>
